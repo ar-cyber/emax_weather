@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Callable, Optional
+import inspect
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -45,6 +46,9 @@ class EmaxSensorDescription(SensorEntityDescription):
 
     value_fn: Optional[Callable] = None
     sensor_type: Optional[int] = None
+    # Whether this description should be created per radio channel. Set to
+    # False for global device-level sensors (deviceMac, updateTime, etc.).
+    per_channel: bool = True
 
 
 SENSOR_DESCRIPTIONS = [
@@ -73,6 +77,7 @@ SENSOR_DESCRIPTIONS = [
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPressure.HPA,
+        # per_channel=True,
     ),
     EmaxSensorDescription(
         key="wind_speed",
@@ -91,6 +96,18 @@ SENSOR_DESCRIPTIONS = [
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="lux",
         sensor_type=SENSOR_TYPE_LIGHT,
+        # make light a primary sensor (lux)
+        per_channel=True,
+    ),
+    EmaxSensorDescription(
+        key="ultraviolet",
+        name="Ultraviolet",
+        icon="mdi:weather-sunny-alert",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=None,
+        sensor_type=SENSOR_TYPE_LIGHT,
+        per_channel=True,
     ),
     EmaxSensorDescription(
         key="noise",
@@ -100,6 +117,8 @@ SENSOR_DESCRIPTIONS = [
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="dB",
         sensor_type=SENSOR_TYPE_NOISE,
+        # primary sound sensor
+        per_channel=True,
     ),
     EmaxSensorDescription(
         key="rainfall",
@@ -118,6 +137,7 @@ SENSOR_DESCRIPTIONS = [
         state_class=None,
         native_unit_of_measurement=None,
         value_fn=lambda data: data.get("deviceMac"),
+        per_channel=False,
     ),
     EmaxSensorDescription(
         key="update_time",
@@ -127,7 +147,211 @@ SENSOR_DESCRIPTIONS = [
         state_class=None,
         native_unit_of_measurement=None,
         value_fn=lambda data: data.get("updateTime"),
+        per_channel=False,
     ),
+]
+
+# Global device-level sensors available from the API
+GLOBAL_SENSOR_DESCRIPTIONS = [
+    EmaxSensorDescription(
+        key="dev_timezone",
+        name="Device Timezone",
+        icon="mdi:clock-time-four-outline",
+        device_class=None,
+        state_class=None,
+        native_unit_of_measurement=None,
+        value_fn=lambda data: data.get("devTimezone"),
+        per_channel=False,
+    ),
+    EmaxSensorDescription(
+        key="device_time",
+        name="Device Time",
+        icon="mdi:clock",
+        device_class=None,
+        state_class=None,
+        native_unit_of_measurement=None,
+        value_fn=lambda data: data.get("devTime"),
+        per_channel=False,
+    ),
+    EmaxSensorDescription(
+        key="wireless_status",
+        name="Wireless Status",
+        icon="mdi:wifi",
+        device_class=None,
+        state_class=None,
+        native_unit_of_measurement=None,
+        value_fn=lambda data: data.get("wirelessStatus"),
+        per_channel=False,
+    ),
+    EmaxSensorDescription(
+        key="power_status",
+        name="Power Status",
+        icon="mdi:power",
+        device_class=None,
+        state_class=None,
+        native_unit_of_measurement=None,
+        value_fn=lambda data: data.get("powerStatus"),
+        per_channel=False,
+    ),
+    EmaxSensorDescription(
+        key="weather_status",
+        name="Weather Status",
+        icon="mdi:weather-partly-cloudy",
+        device_class=None,
+        state_class=None,
+        native_unit_of_measurement=None,
+        value_fn=lambda data: data.get("weatherStatus"),
+        per_channel=False,
+    ),
+]
+
+# Per-channel nested sensors (wind stats, rainfall, noise, light)
+PER_CHANNEL_EXTRA_DESCRIPTIONS = [
+    EmaxSensorDescription(
+        key="wind_hour_speed",
+        name="Wind Speed (hour)",
+        icon="mdi:weather-windy",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        sensor_type=SENSOR_TYPE_WIND_SPEED,
+    ),
+    EmaxSensorDescription(
+        key="wind_day_speed",
+        name="Wind Speed (day)",
+        icon="mdi:weather-windy",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        sensor_type=SENSOR_TYPE_WIND_SPEED,
+    ),
+    EmaxSensorDescription(
+        key="wind_week_speed",
+        name="Wind Speed (week)",
+        icon="mdi:weather-windy",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        sensor_type=SENSOR_TYPE_WIND_SPEED,
+    ),
+    EmaxSensorDescription(
+        key="wind_month_speed",
+        name="Wind Speed (month)",
+        icon="mdi:weather-windy",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        sensor_type=SENSOR_TYPE_WIND_SPEED,
+    ),
+    EmaxSensorDescription(
+        key="wind_year_speed",
+        name="Wind Speed (year)",
+        icon="mdi:weather-windy",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        sensor_type=SENSOR_TYPE_WIND_SPEED,
+    ),
+    EmaxSensorDescription(
+        key="wind_direction",
+        name="Wind Direction",
+        icon="mdi:compass",
+        device_class=None,
+        state_class=None,
+        native_unit_of_measurement="°",
+        sensor_type=SENSOR_TYPE_WIND_SPEED,
+    ),
+    EmaxSensorDescription(
+        key="rain_month",
+        name="Rainfall (month)",
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement="mm",
+        sensor_type=SENSOR_TYPE_RAINFALL,
+    ),
+    EmaxSensorDescription(
+        key="rain_year",
+        name="Rainfall (year)",
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement="mm",
+        sensor_type=SENSOR_TYPE_RAINFALL,
+    ),
+    EmaxSensorDescription(
+        key="rain_accumulated",
+        name="Rainfall (accumulated)",
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement="mm",
+        sensor_type=SENSOR_TYPE_RAINFALL,
+    ),
+    EmaxSensorDescription(
+        key="noise_hour_max",
+        name="Noise Hour Max",
+        icon="mdi:volume-high",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="dB",
+        sensor_type=SENSOR_TYPE_NOISE,
+    ),
+    EmaxSensorDescription(
+        key="noise_hour_avg",
+        name="Noise Hour Avg",
+        icon="mdi:volume-medium",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="dB",
+        sensor_type=SENSOR_TYPE_NOISE,
+    ),
+    EmaxSensorDescription(
+        key="noise_day_max",
+        name="Noise Day Max",
+        icon="mdi:volume-high",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="dB",
+        sensor_type=SENSOR_TYPE_NOISE,
+    ),
+    EmaxSensorDescription(
+        key="noise_day_avg",
+        name="Noise Day Avg",
+        icon="mdi:volume-medium",
+        device_class=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="dB",
+        sensor_type=SENSOR_TYPE_NOISE,
+    ),
+    EmaxSensorDescription(
+        key="light_current",
+        name="Light Intensity",
+        icon="mdi:lightbulb",
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="lux",
+        sensor_type=SENSOR_TYPE_LIGHT,
+    ),
+    EmaxSensorDescription(
+        key="light_hour",
+        name="Light Intensity (hour)",
+        icon="mdi:lightbulb",
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="lux",
+        sensor_type=SENSOR_TYPE_LIGHT,
+    ),
+    EmaxSensorDescription(
+        key="light_max",
+        name="Light Intensity Max",
+        icon="mdi:lightbulb",
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="lux",
+        sensor_type=SENSOR_TYPE_LIGHT,
+    ),
+    # UV handled as primary 'ultraviolet' sensor above; no extra UV keys here
 ]
 
 
@@ -165,6 +389,11 @@ async def async_setup_entry(
     # Sort for stable ordering
     for channel in sorted(channels):
         for description in SENSOR_DESCRIPTIONS:
+            # If description is not per_channel, skip here
+            if getattr(description, "per_channel", True) is False and channel == 0:
+                # global-only sensors should NOT be created on channel 0
+                continue
+
             entities.append(
                 EmaxWeatherSensor(
                     coordinator=coordinator,
@@ -173,6 +402,28 @@ async def async_setup_entry(
                     channel=channel,
                 )
             )
+
+        # Add extra per-channel sensors (wind stats, rainfall, noise, light)
+        for extra in PER_CHANNEL_EXTRA_DESCRIPTIONS:
+            entities.append(
+                EmaxWeatherSensor(
+                    coordinator=coordinator,
+                    description=extra,
+                    config_entry=entry,
+                    channel=channel,
+                )
+            )
+
+    # Add global-only sensors (device-level) once, attached to channel 0 device
+    for g in GLOBAL_SENSOR_DESCRIPTIONS:
+        entities.append(
+            EmaxWeatherSensor(
+                coordinator=coordinator,
+                description=g,
+                config_entry=entry,
+                channel=0,
+            )
+        )
 
     async_add_entities(entities)
 
@@ -245,8 +496,68 @@ class EmaxWeatherSensor(CoordinatorEntity, SensorEntity):
                 if self.entity_description.key == "wind_speed":
                     # Wind info is nested
                     value = sensor.get("devWindVal", {}).get("currWindSpeed")
-                if value is None:
-                    return 0
+
+                # For additional per-channel nested extra sensors, map keys
+                key = self.entity_description.key
+                if key in (
+                    "wind_hour_speed",
+                    "wind_day_speed",
+                    "wind_week_speed",
+                    "wind_month_speed",
+                    "wind_year_speed",
+                    "wind_direction",
+                ):
+                    mapping = {
+                        "wind_hour_speed": "hourWindSpeed",
+                        "wind_day_speed": "dayWindSpeed",
+                        "wind_week_speed": "weekWindSpeed",
+                        "wind_month_speed": "monthWindSpeed",
+                        "wind_year_speed": "yearWindSpeed",
+                        "wind_direction": "windDirection",
+                    }
+                    value = sensor.get("devWindVal", {}).get(mapping.get(key))
+
+                if key in ("rain_month", "rain_year", "rain_accumulated"):
+                    mapping = {
+                        "rain_month": "monthRainfall",
+                        "rain_year": "yearRainfall",
+                        "rain_accumulated": "accumulateRainfall",
+                    }
+                    value = sensor.get("devRainfullVals", {}).get(mapping.get(key))
+
+                if key in ("noise_hour_max", "noise_hour_avg", "noise_day_max", "noise_day_avg", "noise"):
+                    # Prefer averages when available (hourNoiseAvg/dayNoiseAvg)
+                    noise = sensor.get("devNoiseVals", {})
+                    if key == "noise":
+                        # top-level primary noise: prefer hour avg then day avg then max
+                        candidates = [noise.get("hourNoiseAvg"), noise.get("dayNoiseAvg"), noise.get("hourNoiseMax"), noise.get("dayNoiseMax")]
+                        # treat sentinel values as None
+                        candidates = [None if v in (65535, 255) else v for v in candidates]
+                        value = next((v for v in candidates if v is not None), None)
+                    else:
+                        mapping = {
+                            "noise_hour_max": "hourNoiseMax",
+                            "noise_hour_avg": "hourNoiseAvg",
+                            "noise_day_max": "dayNoiseMax",
+                            "noise_day_avg": "dayNoiseAvg",
+                        }
+                        value = noise.get(mapping.get(key))
+
+                if key in ("light_current", "light_hour", "light_max", "ultraviolet", "light"):
+                    light = sensor.get("devLightVals", {})
+                    mapping = {
+                        "light_current": "currLightIntensity",
+                        "light_hour": "hourLightIntensity",
+                        "light_max": "lightIntensityMax",
+                        "ultraviolet": "currUltraviolet",
+                        "light": "currLightIntensity",
+                    }
+                    value = light.get(mapping.get(key))
+
+                # Normalize sentinel values for availability
+                if isinstance(value, (int, float)) and value in (65535, 255, 65535.0):
+                    return None
+
                 return value
             return None
 

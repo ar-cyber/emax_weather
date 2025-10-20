@@ -465,6 +465,59 @@ class EmaxWeatherSensor(CoordinatorEntity, SensorEntity):
         # Extract from sensor data by type and channel
         if self.entity_description.sensor_type is not None:
             sensors = data.get("sensorDatas", [])
+            # Special handling for wind data: the device reports wind under
+            # devWindVal in a sensor of type SENSOR_TYPE_WIND_SPEED. That
+            # sensor may be reported on a different channel (commonly 99).
+            # We therefore search all wind sensors and prefer same-channel
+            # but fall back to the first available wind sensor.
+            key = self.entity_description.key
+            if self.entity_description.sensor_type == SENSOR_TYPE_WIND_SPEED or key.startswith("wind_"):
+                wind_sensors = [s for s in sensors if s.get("type") == SENSOR_TYPE_WIND_SPEED]
+                chosen = None
+                # Prefer same-channel wind sensor
+                for s in wind_sensors:
+                    try:
+                        if int(s.get("channel", -1)) == self._channel and not int(s.get("channel", -1)) == 0: # Please note that wind sensors CANNOT be on channel 0
+                            chosen = s
+                            break
+                    except (TypeError, ValueError):
+                        continue
+
+                # Otherwise pick the first with devWindVal
+                if chosen is None:
+                    for s in wind_sensors:
+                        if s.get("devWindVal"):
+                            chosen = s
+                            break
+
+                # If still none, no wind data available
+                if not chosen:
+                    return None
+
+                dev = chosen.get("devWindVal", {})
+
+                # Map keys
+                if key == "wind_speed":
+                    # Prefer nested currWindSpeed, fall back to curVal
+                    value = dev.get("currWindSpeed") if dev.get("currWindSpeed") is not None else chosen.get("curVal")
+                else:
+                    mapping = {
+                        "wind_hour_speed": "hourWindSpeed",
+                        "wind_day_speed": "dayWindSpeed",
+                        "wind_week_speed": "weekWindSpeed",
+                        "wind_month_speed": "monthWindSpeed",
+                        "wind_year_speed": "yearWindSpeed",
+                        "wind_direction": "windDirection",
+                    }
+                    value = dev.get(mapping.get(key))
+
+                # Normalize sentinel/invalid
+                if isinstance(value, (int, float)) and value in (65535, 255, 65535.0):
+                    return None
+
+                return value
+
+            # Default handling for other sensor types
             for sensor in sensors:
                 # Filter by type and the configured channel for this entity
                 try:
@@ -480,7 +533,8 @@ class EmaxWeatherSensor(CoordinatorEntity, SensorEntity):
                     continue
 
                 # It shouldn't be but this is precautionary
-                if sensor["channel"] in [1, 2, 3]: continue
+                if sensor["channel"] in [1, 2, 3]:
+                    continue
 
                 # Extract value safely
                 value = sensor.get("curVal")
@@ -493,30 +547,8 @@ class EmaxWeatherSensor(CoordinatorEntity, SensorEntity):
                     except Exception:
                         pass
 
-                if self.entity_description.key == "wind_speed":
-                    # Wind info is nested
-                    value = sensor.get("devWindVal", {}).get("currWindSpeed")
-
                 # For additional per-channel nested extra sensors, map keys
                 key = self.entity_description.key
-                if key in (
-                    "wind_hour_speed",
-                    "wind_day_speed",
-                    "wind_week_speed",
-                    "wind_month_speed",
-                    "wind_year_speed",
-                    "wind_direction",
-                ):
-                    mapping = {
-                        "wind_hour_speed": "hourWindSpeed",
-                        "wind_day_speed": "dayWindSpeed",
-                        "wind_week_speed": "weekWindSpeed",
-                        "wind_month_speed": "monthWindSpeed",
-                        "wind_year_speed": "yearWindSpeed",
-                        "wind_direction": "windDirection",
-                    }
-                    value = sensor.get("devWindVal", {}).get(mapping.get(key))
-
                 if key in ("rain_month", "rain_year", "rain_accumulated"):
                     mapping = {
                         "rain_month": "monthRainfall",

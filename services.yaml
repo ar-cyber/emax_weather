@@ -1,0 +1,46 @@
+refresh_weather:
+  name: Refresh weather data
+  description: Force immediate refresh of weather data from Emax API
+  target:
+    integration: emax_weather
+
+bind_device:
+  name: Bind weather station
+  description: Add a new weather station device to the account
+  fields:
+    device_model:
+      name: Device model
+      description: 'Model of device (e.g., W001, W002, W003)'
+      required: true
+      example: 'W001'
+    device_sn:
+      name: Device serial number
+      description: Serial number of the device
+      required: true
+      example: '1A2B3C4D5E6F'
+    device_key:
+      name: Device key
+      description: Device binding key (from device display or manual)
+      required: true
+      example: 'ABC123XYZ789'
+    location_name:
+      name: Location name
+      description: Friendly name for the device location
+      required: false
+      example: 'Backyard Station'
+
+get_device_list:
+  name: Get device list
+  description: Retrieve all weather stations bound to the account
+  target:
+    integration: emax_weather
+
+unbind_device:
+  name: Unbind weather station
+  description: Remove a weather station device from the account
+  fields:
+    device_sn:
+      name: Device serial number
+      description: Serial number of device to unbind
+      required: true
+      example: '1A2B3C4D5E6F'

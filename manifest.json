@@ -1,0 +1,12 @@
+{
+  "domain": "emax_weather",
+  "name": "Emax Weather Station",
+  "codeowners": ["@your-github-username"],
+  "config_flow": true,
+  "documentation": "https://github.com/your-username/emax-weather-homeassistant",
+  "requirements": ["aiohttp>=3.8.0"],
+  "version": "1.0.0",
+  "issue_tracker": "https://github.com/your-username/emax-weather-homeassistant/issues",
+  "homeassistant": "2023.12.0",
+  "iot_class": "cloud_polling"
+}
